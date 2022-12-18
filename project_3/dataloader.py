@@ -1,6 +1,7 @@
 # import dependencies
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from sklearn import datasets
 
@@ -52,33 +53,23 @@ class LogisticRegressionModel(nn.Module):
         y_predict = torch.sigmoid(self.Linear(feature))
         return y_predict
 
-    #     super(TinyModel, self).__init__()
-
-    #     self.linear1 = torch.nn.Linear(100, 200)
-    #     self.activation = torch.nn.ReLU()
-    #     self.linear2 = torch.nn.Linear(200, 10)
-    #     self.softmax = torch.nn.Softmax()
-
-    # def forward(self, x):
-    #     x = self.linear1(x)
-    #     x = self.activation(x)
-    #     x = self.linear2(x)
-    #     x = self.softmax(x)
-    #     return x
-
 
 if __name__=="__main__" :
-    # Parameters
-    params = {  'batch_size':32,
-                'shffle' : True,
-                'num_workers' : -1 }
-    n_epochs = 20
 
     # Dataset & Split
     data = datasets.breast_cancer()
     X_train, X_test, y_train, y_test = split_data(data.data, data.target, 0.2)
 
+    # scale data
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
+    
     # Generators train & test data
+    params = {  'batch_size':32,
+                'shffle' : True,
+                'num_workers' : -1 }
+
     train_data = data_set(X_train, y_train)
     train_dataloader = DataLoader(dataset=train_data, **params)
 
@@ -93,6 +84,18 @@ if __name__=="__main__" :
     print("First iteration of test data :\n")
     print(data_iter.next(iter(test_dataloader)))
     print("Length of train data :\n", len(test_dataloader))
+
+
+    # model -----------------------
+    model = LogisticRegressionModel(n_features, 1)
+
+    # loss and optimizer
+    Learning_rate = 0.01
+    Loss = nn.BCELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=Learning_rate)
+
+    # training loop
+    n_epochs = 100
 
     for epoch in range(n_epochs):
         for inputs, labels in train_dataloader:
