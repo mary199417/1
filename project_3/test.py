@@ -1,5 +1,6 @@
-# import dependencies
-import numpy as np
+import os
 
 
-print("hello world !!")
+
+ 
+os.system('python3 dataloader.py')
