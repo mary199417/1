@@ -2,17 +2,25 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
 from sklearn import datasets
+# Preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, DataLoader
+# Evaluation
+from sklearn.metrics import classification_report, roc_auc_score 
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 
 class data_set(Dataset):
     'Characterizes a dataset for PyTorch'
     def __init__(self, features, labels):
         'Initialization'
-        self.X = torch.from_numpy(features)
-        self.y = torch.from_numpy(labels)
+        self.X = torch.from_numpy(features.astype(np.float32))
+        self.y = (torch.from_numpy(labels.astype(np.float32))).view(-1,1)
         self.num_sample = labels.shape[0]
+        # print(self.X.shape, self.y.shape)
+
 
     def __getitem__(self, index):
         'Generates one sample of data'
@@ -54,40 +62,63 @@ class LogisticRegressionModel(nn.Module):
         return y_predict
 
 
+def evaluate(y, y_pred):
+    """
+    evaluate the predicted values
+
+    parameter
+    -------------------
+    y : the true value of sample
+    y_pred : value prediction of sample
+
+    Output
+    -------------------
+    print evaluation based on multiple criteria
+    """
+    cl_rp = classification_report(y, y_pred)
+    auc = np.round(roc_auc_score(y, y_pred), 3)
+    accuracy = np.round(accuracy_score(y, y_pred), 3)
+    conf_mat = confusion_matrix(y, y_pred)
+
+    print(cl_rp)
+    print(f'Auc : {auc}')
+    print(f'accuracy : {accuracy}')
+    print("confusion_matrix :\n", conf_mat)
+
+
 if __name__=="__main__" :
 
     # Dataset & Split
-    data = datasets.breast_cancer()
+    data = datasets.load_breast_cancer()
     X_train, X_test, y_train, y_test = split_data(data.data, data.target, 0.2)
+
 
     # scale data
     sc = StandardScaler()
     X_train = sc.fit_transform(X_train)
     X_test = sc.transform(X_test)
     
+    
+    X_test = torch.from_numpy(X_test.astype(np.float32))
+    y_test = torch.from_numpy(y_test.astype(np.float32))
+
     # Generators train & test data
     params = {  'batch_size':32,
-                'shffle' : True,
-                'num_workers' : -1 }
+                'shuffle' : True,
+                'num_workers' : 3 }
 
     train_data = data_set(X_train, y_train)
     train_dataloader = DataLoader(dataset=train_data, **params)
 
-    test_data = data_set(X_test, y_test)
-    test_dataloader = DataLoader(dataset=test_data, **params)
-
     # check data
-    print("First iteration of train data :\n")
-    print(data_iter.next(iter(train_dataloader)))
-    print("Length of train data :\n", len(train_dataloader))
+    # print("First iteration of train data :\n")
+    # print((iter(train_dataloader).next()))
+    # print("Length of train data :\n", len(train_dataloader))
 
-    print("First iteration of test data :\n")
-    print(data_iter.next(iter(test_dataloader)))
-    print("Length of train data :\n", len(test_dataloader))
 
 
     # model -----------------------
-    model = LogisticRegressionModel(n_features, 1)
+    model = LogisticRegressionModel(X_train.shape[1], 1)
 
     # loss and optimizer
     Learning_rate = 0.01
@@ -95,12 +126,13 @@ if __name__=="__main__" :
     optimizer = torch.optim.SGD(model.parameters(), lr=Learning_rate)
 
     # training loop
-    n_epochs = 100
+    n_epochs = 3
 
     for epoch in range(n_epochs):
         for inputs, labels in train_dataloader:
             # forward and loss
             y_predict = model(inputs)
+            # print(inputs.shape, labels.shape, y_predict.shape)
             loss = Loss(y_predict, labels)
 
             # backward
@@ -117,4 +149,7 @@ if __name__=="__main__" :
         print(f'epochs {epoch+1} , loss {loss.item():.4f}')
 
     with torch.no_grad():
-        for inputs, labels in test_dataloader:
+        print(type(X_test), type(y_test))
+        y_predicted = model(X_test)
+        y_predicted = y_predicted.round()
+    evaluate(y_test, y_predicted)
